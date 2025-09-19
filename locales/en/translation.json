@@ -1,0 +1,61 @@
+{
+  "common": {
+    "hello": "Hello",
+    "welcome": "Welcome",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "retry": "Retry",
+    "close": "Close",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort"
+  },
+  "pokedex": {
+    "title": "Pokédex",
+    "subtitle": "Explore all Pokémon",
+    "totalPokemon": "Total {{count}} Pokémon",
+    "pokemonNotFound": "Pokémon not found",
+    "searchPlaceholder": "Enter Pokémon name or number",
+    "types": {
+      "normal": "Normal",
+      "fire": "Fire",
+      "water": "Water",
+      "electric": "Electric",
+      "grass": "Grass",
+      "ice": "Ice",
+      "fighting": "Fighting",
+      "poison": "Poison",
+      "ground": "Ground",
+      "flying": "Flying",
+      "psychic": "Psychic",
+      "bug": "Bug",
+      "rock": "Rock",
+      "ghost": "Ghost",
+      "dragon": "Dragon",
+      "dark": "Dark",
+      "steel": "Steel",
+      "fairy": "Fairy"
+    },
+    "stats": {
+      "hp": "HP",
+      "attack": "Attack",
+      "defense": "Defense",
+      "specialAttack": "Sp. Atk",
+      "specialDefense": "Sp. Def",
+      "speed": "Speed"
+    },
+    "abilities": "Abilities",
+    "height": "Height",
+    "weight": "Weight",
+    "category": "Category",
+    "generation": "Generation"
+  },
+  "navigation": {
+    "home": "Home",
+    "pokemon": "Pokémon",
+    "types": "Types",
+    "generations": "Generations",
+    "favorites": "Favorites",
+    "settings": "Settings"
+  }
+}
