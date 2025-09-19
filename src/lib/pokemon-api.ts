@@ -81,10 +81,17 @@ const fetchWithTimeout = async (
   }
 };
 
-export async function getPokemonList(): Promise<PokemonListItem[]> {
+export async function getPokemonList(
+  offset = 0,
+  limit = 20
+): Promise<{
+  pokemonList: PokemonListItem[];
+  hasNextPage: boolean;
+  nextOffset: number;
+}> {
   try {
     const response = await fetchWithTimeout(
-      'https://pokeapi.co/api/v2/pokemon?limit=20'
+      `https://pokeapi.co/api/v2/pokemon?offset=${offset}&limit=${limit}`
     );
     await validateResponse(response);
 
@@ -98,7 +105,7 @@ export async function getPokemonList(): Promise<PokemonListItem[]> {
     const pokemonDetails = await Promise.all(
       data.results.map(
         async (pokemon: { name: string; url: string }, index: number) => {
-          const id = index + 1;
+          const id = offset + index + 1;
           // 각 포켓몬의 상세 정보를 가져와서 이미지 URL 사용
           try {
             const pokemonDetail = await getPokemon(id.toString());
@@ -126,7 +133,11 @@ export async function getPokemonList(): Promise<PokemonListItem[]> {
       )
     );
 
-    return pokemonDetails;
+    return {
+      pokemonList: pokemonDetails,
+      hasNextPage: !!data.next,
+      nextOffset: offset + limit,
+    };
   } catch (error) {
     if (error instanceof Error) {
       throw {
