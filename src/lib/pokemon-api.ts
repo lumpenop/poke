@@ -106,29 +106,7 @@ export async function getPokemonList(
       data.results.map(
         async (pokemon: { name: string; url: string }, index: number) => {
           const id = offset + index + 1;
-          // 각 포켓몬의 상세 정보를 가져와서 이미지 URL 사용
-          try {
-            const pokemonDetail = await getPokemon(id.toString());
-            return {
-              name: pokemon.name,
-              url: pokemon.url,
-              id,
-              image: pokemonDetail.sprites.front_default || '',
-              types: pokemonDetail.types.map(
-                (type: { type: { name: string } }) => type.type.name
-              ),
-            };
-          } catch (error) {
-            // 에러 발생 시 기본값 사용
-            console.log(error);
-            return {
-              name: pokemon.name,
-              url: pokemon.url,
-              id,
-              image: '',
-              types: [],
-            };
-          }
+          return fetchPokemonDetail(pokemon, id);
         }
       )
     );
@@ -149,6 +127,34 @@ export async function getPokemonList(
   }
 }
 
+const fetchPokemonDetail = async (
+  pokemon: { name: string; url: string },
+  id: number
+): Promise<PokemonListItem> => {
+  try {
+    const pokemonDetail = await getPokemon(id.toString());
+    return {
+      name: pokemon.name,
+      url: pokemon.url,
+      id,
+      image: pokemonDetail.sprites.front_default || '',
+      types: pokemonDetail.types.map(
+        (type: { type: { name: string } }) => type.type.name
+      ),
+    };
+  } catch (error) {
+    // 에러 발생 시 기본값 사용
+    console.log(error);
+    return {
+      name: pokemon.name,
+      url: pokemon.url,
+      id,
+      image: '',
+      types: [],
+    };
+  }
+};
+
 export async function getPokemon(id: string): Promise<Pokemon> {
   try {
     if (!id || id.trim() === '') {
@@ -167,7 +173,22 @@ export async function getPokemon(id: string): Promise<Pokemon> {
 
     const data: Pokemon = await response.json();
 
-    return data;
+    // 포켓몬 상세 정보 검증 및 정리
+    const pokemon: Pokemon = {
+      id: data.id,
+      name: data.name,
+      height: data.height || 0,
+      weight: data.weight || 0,
+      types: data.types || [],
+      stats: data.stats || [],
+      abilities: data.abilities || [],
+      sprites: {
+        front_default: data.sprites?.front_default || '',
+        other: data.sprites?.other || undefined,
+      },
+    };
+
+    return pokemon;
   } catch (error) {
     if (error instanceof Error) {
       throw {

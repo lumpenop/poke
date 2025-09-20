@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { getPokemonList } from '@/lib/pokemon-api';
 import { PokemonListItem } from '@/types';
 import { Toast } from '../ui/toast';
+import { usePokemonStore } from '@/stores/pokemon-store';
+import { getTypeColorClass } from '@/utils/pokemon-types';
 
 export const PokemonList: React.FC<{
   defaultPokemonList: {
@@ -15,6 +17,15 @@ export const PokemonList: React.FC<{
   };
 }> = ({ defaultPokemonList }) => {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // 필요한 상태만 선택적으로 구독
+  const searchQuery = usePokemonStore(state => state.searchQuery);
+  const setSearchQuery = usePokemonStore(state => state.setSearchQuery);
+  const setSelectedPokemon = usePokemonStore(state => state.setSelectedPokemon);
+  const addPokemon = usePokemonStore(state => state.addPokemon);
+  const setPokemons = usePokemonStore(state => state.setPokemons);
+  const setLoading = usePokemonStore(state => state.setLoading);
+  const setError = usePokemonStore(state => state.setError);
 
   const {
     data,
@@ -34,6 +45,29 @@ export const PokemonList: React.FC<{
       pageParams: [0],
     },
   });
+
+  useEffect(() => {
+    if (data?.pages) {
+      const allPokemon = data.pages.flatMap(page => page.pokemonList);
+      setPokemons(allPokemon);
+    }
+  }, [data, setPokemons]);
+
+  useEffect(() => {
+    setLoading(isLoading);
+  }, [isLoading, setLoading]);
+
+  useEffect(() => {
+    if (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : '알 수 없는 오류가 발생했습니다'
+      );
+    } else {
+      setError(null);
+    }
+  }, [error, setError]);
 
   // 무한스크롤을 위한 Intersection Observer
   const lastPokemonElementRef = useCallback(
@@ -60,6 +94,35 @@ export const PokemonList: React.FC<{
       );
     }
   }, [error]);
+
+  // 메모이제이션된 값들 (early return 이전에 위치)
+  const allPokemon = useMemo(
+    () => data?.pages.flatMap(page => page.pokemonList) || [],
+    [data]
+  );
+
+  const filteredPokemon = useMemo(() => {
+    if (!searchQuery) return allPokemon;
+    return allPokemon.filter(pokemon =>
+      pokemon.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [allPokemon, searchQuery]);
+
+  // 버튼 클릭 핸들러들 메모이제이션
+  const handlePokemonSelect = useCallback(
+    (pokemon: PokemonListItem) => {
+      setSelectedPokemon(pokemon);
+    },
+    [setSelectedPokemon]
+  );
+
+  const handlePokemonCollect = useCallback(
+    (pokemon: PokemonListItem) => {
+      addPokemon(pokemon);
+      setToastMessage(`${pokemon.name}을(를) 수집했습니다!`);
+    },
+    [addPokemon]
+  );
 
   if (isLoading) {
     return (
@@ -88,15 +151,25 @@ export const PokemonList: React.FC<{
     );
   }
 
-  const allPokemon = data?.pages.flatMap(page => page.pokemonList) || [];
-
   return (
     <div className='space-y-6'>
-      <h2 className='text-2xl font-bold mb-6'>포켓몬 목록</h2>
+      <div className='flex flex-col sm:flex-row gap-4 items-center justify-between'>
+        <h2 className='text-2xl font-bold'>포켓몬 목록</h2>
+
+        <div className='w-full sm:w-80'>
+          <input
+            type='text'
+            placeholder='포켓몬 이름으로 검색...'
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+          />
+        </div>
+      </div>
 
       <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'>
-        {allPokemon.map((pokemon, index) => {
-          const isLastPokemon = index === allPokemon.length - 1;
+        {filteredPokemon.map((pokemon, index) => {
+          const isLastPokemon = index === filteredPokemon.length - 1;
 
           return (
             <div
@@ -104,7 +177,6 @@ export const PokemonList: React.FC<{
               ref={isLastPokemon ? lastPokemonElementRef : null}
               className='bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden hover:shadow-xl transition-shadow'
             >
-              {/* 포켓몬 이미지 */}
               <div className='bg-gradient-to-b from-gray-50 to-gray-100 p-6 flex justify-center'>
                 <Image
                   src={pokemon.image}
@@ -115,7 +187,6 @@ export const PokemonList: React.FC<{
                 />
               </div>
 
-              {/* 포켓몬 정보 */}
               <div className='p-4'>
                 <div className='text-center mb-3'>
                   <div className='text-sm text-gray-500 mb-1'>
@@ -126,56 +197,28 @@ export const PokemonList: React.FC<{
                   </h3>
                 </div>
 
-                {/* 타입 */}
                 <div className='flex flex-wrap gap-2 justify-center mb-4'>
                   {pokemon.types.map((type, typeIndex) => (
                     <span
                       key={typeIndex}
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        type === 'grass'
-                          ? 'bg-green-100 text-green-800'
-                          : type === 'fire'
-                            ? 'bg-red-100 text-red-800'
-                            : type === 'water'
-                              ? 'bg-blue-100 text-blue-800'
-                              : type === 'electric'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : type === 'poison'
-                                  ? 'bg-purple-100 text-purple-800'
-                                  : type === 'flying'
-                                    ? 'bg-sky-100 text-sky-800'
-                                    : type === 'ground'
-                                      ? 'bg-amber-100 text-amber-800'
-                                      : type === 'psychic'
-                                        ? 'bg-pink-100 text-pink-800'
-                                        : type === 'bug'
-                                          ? 'bg-lime-100 text-lime-800'
-                                          : type === 'rock'
-                                            ? 'bg-stone-100 text-stone-800'
-                                            : type === 'ghost'
-                                              ? 'bg-indigo-100 text-indigo-800'
-                                              : type === 'dragon'
-                                                ? 'bg-violet-100 text-violet-800'
-                                                : type === 'dark'
-                                                  ? 'bg-gray-100 text-gray-800'
-                                                  : type === 'steel'
-                                                    ? 'bg-slate-100 text-slate-800'
-                                                    : type === 'fairy'
-                                                      ? 'bg-rose-100 text-rose-800'
-                                                      : 'bg-gray-100 text-gray-800'
-                      }`}
+                      className={`px-3 py-1 rounded-full text-xs font-medium ${getTypeColorClass(type)}`}
                     >
                       {type}
                     </span>
                   ))}
                 </div>
 
-                {/* 액션 버튼 */}
                 <div className='flex gap-2'>
-                  <button className='flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium'>
+                  <button
+                    onClick={() => handlePokemonSelect(pokemon)}
+                    className='flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium'
+                  >
                     상세보기
                   </button>
-                  <button className='flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium'>
+                  <button
+                    onClick={() => handlePokemonCollect(pokemon)}
+                    className='flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium'
+                  >
                     수집하기
                   </button>
                 </div>
@@ -185,7 +228,6 @@ export const PokemonList: React.FC<{
         })}
       </div>
 
-      {/* 로딩 인디케이터 */}
       {isFetchingNextPage && (
         <div className='flex items-center justify-center py-8'>
           <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600'></div>
@@ -195,7 +237,6 @@ export const PokemonList: React.FC<{
         </div>
       )}
 
-      {/* 토스트 메시지 */}
       {toastMessage && (
         <Toast
           message={toastMessage}
